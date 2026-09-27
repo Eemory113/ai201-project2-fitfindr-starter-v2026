@@ -13,27 +13,16 @@
 > python app.py ask 'vintage graphic tee under $30'
 > ```
 >
-> All three tools are stubs, so that last command will do nothing useful yet.
-> That's the starting position.
+> The search and outfit tools are implemented; the fit-card tool is still a
+> stub.
 >
 > **The rest of this file is your submission.** Fill it in as you go.
 
 ---
 
-<!-- ─────────────────────────────────────────────────────────────────────────
-     HOW TO USE THIS FILE
-
-     This is your submission. Fill each section in as you finish the milestone
-     it belongs to — don't leave it all to the end.
-
-     Unit 3 asks for the first five sections. Unit 4 adds the five below them.
-     Leave the unit 4 sections alone until then; they're here so you know
-     what's coming.
-
-     Everything is pasted as TEXT. No screenshots, no images, no video links.
-     A typed block of output gets full credit; a picture of the same output
-     gets none.
-     ───────────────────────────────────────────────────────────────────────── -->
+search_listings(description, size, max_price): searches listing descriptions by keyword overlap, with optional size and maximum-price filters; returns matching listings by relevance or [] when nothing matches.
+suggest_outfit(new_item: dict, wardrobe: dict): uses the model to suggest outfits for the listing, combining it with wardrobe items when available and giving general advice when the wardrobe is empty. Returns a non-empty string.
+create_fit_card(outfit, new_item): uses the model to write a two-to-four-sentence caption about the item, mentioning its price, platform, and vibe. Returns a descriptive item message when the outfit is empty.
 
 <!-- ═══════════════════════ UNIT 3 — THE BUILD ═══════════════════════ -->
 
@@ -59,24 +48,24 @@
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Searches listing descriptions by case-insensitive keyword overlap, with optional size and inclusive maximum-price filters.
+- **Inputs:** `description` (str), `size` (str or None), `max_price` (float or None).
+- **Returns:** Up to `config.SEARCH_RESULT_LIMIT` listing dictionaries, ordered by the number of unique description keywords matched; size components match case-insensitively (`M` matches `S/M`, but `L` does not match `XL`).
+- **When it has nothing:** An empty list when no listings pass the filters and match at least one description keyword.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Uses the model to suggest one or two outfits built around the listing, using the user's wardrobe when it has items and general styling advice otherwise.
+- **Inputs:** `new_item` (dict listing), `wardrobe` (dict with an `items` list).
+- **Returns:** A non-empty string with outfit suggestions or general styling advice.
+- **When it has nothing:** An empty wardrobe receives general styling advice without claiming the user owns specific pieces.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Uses the model to write a social caption grounded in the outfit suggestion and listing details.
+- **Inputs:** `outfit` (str), `new_item` (dict listing).
+- **Returns:** A two-to-four-sentence caption that mentions the item, price, and platform once each and describes its vibe.
+- **When it has nothing:** An empty or whitespace-only outfit returns a descriptive message containing the item's title, price, platform, and style.
 
 ---
 

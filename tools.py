@@ -10,8 +10,7 @@ can't tell which layer is lying to you.
     suggest_outfit(new_item, wardrobe)             → str
     create_fit_card(outfit, new_item)              → str
 
-All three are stubs right now. They run and they do nothing — that's the
-starting position and it's deliberate.
+All three tools are implemented and can be tested independently.
 
 ⚠️ Before you write any of them, fill in the **Tool Inventory** section of your
 README (Milestone 2). Four lines per tool: what it does, each input with its
@@ -20,7 +19,10 @@ That last line is what your loop branches on. "Returns a list" earns nothing —
 the description has to say what is *in* the list.
 """
 
-import config  # noqa: F401 — you'll use this in search_listings
+import json
+import re
+
+import config
 from generate import generate
 from utils.data_loader import load_listings
 
@@ -78,8 +80,32 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    keywords = set(re.findall(r"[a-z0-9]+", description.casefold()))
+    matches = []
+
+    for listing in load_listings():
+        if max_price is not None and listing["price"] > max_price:
+            continue
+
+        if size is not None:
+            requested_size = re.findall(r"[a-z0-9]+", size.casefold())
+            listing_size = re.findall(r"[a-z0-9]+", listing["size"].casefold())
+            size_matches = any(
+                listing_size[index:index + len(requested_size)] == requested_size
+                for index in range(len(listing_size) - len(requested_size) + 1)
+            )
+            if not size_matches:
+                continue
+
+        listing_words = set(
+            re.findall(r"[a-z0-9]+", listing["description"].casefold())
+        )
+        score = len(keywords & listing_words)
+        if score:
+            matches.append((score, listing))
+
+    matches.sort(key=lambda match: match[0], reverse=True)
+    return [listing for _, listing in matches[:config.SEARCH_RESULT_LIMIT]]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -112,8 +138,44 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    title = new_item.get("title", "this item")
+    item_details = json.dumps(new_item, ensure_ascii=False, indent=2)
+    wardrobe_items = wardrobe.get("items") or []
+
+    if wardrobe_items:
+        wardrobe_details = json.dumps(wardrobe_items, ensure_ascii=False, indent=2)
+        prompt = (
+            "Suggest one or two complete outfits built around the new item. "
+            "For each outfit, name pieces from the provided wardrobe exactly; "
+            "do not claim the user owns anything else. Explain briefly why the "
+            "combination works.\n\n"
+            f"New item listing:\n{item_details}\n\n"
+            f"User's wardrobe items:\n{wardrobe_details}"
+        )
+        fallback = "Try styling the {title} with {pieces} from your wardrobe.".format(
+            title=title,
+            pieces=", ".join(
+                item["name"] for item in wardrobe_items
+                if item.get("name")
+            ) or "pieces you already own",
+        )
+    else:
+        prompt = (
+            "Give general styling advice for this item for someone with an "
+            "empty wardrobe. Suggest versatile kinds of pieces to pair with it, "
+            "but do not imply that the person already owns any items.\n\n"
+            f"New item listing:\n{item_details}"
+        )
+        fallback = (
+            f"Try styling the {title} with versatile basics and shoes that "
+            "complement its colors and style."
+        )
+
+    response = generate(
+        prompt,
+        system="You are a practical personal stylist. Ground advice in the supplied item and wardrobe.",
+    ).strip()
+    return response or fallback
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -152,5 +214,44 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    title = new_item.get("title", "This thrift find")
+    price = new_item.get("price", 0)
+    platform = new_item.get("platform", "a resale platform")
+    style_tags = new_item.get("style_tags") or []
+    vibe = " and ".join(style_tags[:2]) if style_tags else "versatile"
+
+    if not outfit.strip():
+        return (
+            f"{title} is listed for ${price:g} on {platform}. "
+            f"Its {vibe} style makes it a distinctive thrift find."
+        )
+
+    item_details = json.dumps(
+        {
+            "title": title,
+            "description": new_item.get("description", ""),
+            "category": new_item.get("category", ""),
+            "style_tags": style_tags,
+            "price": price,
+            "platform": platform,
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+    prompt = (
+        "Write a social-media caption in 2 to 4 sentences. Make it sound like "
+        "a real person sharing a thrift find, not a product listing. Mention "
+        "the item's title, its exact price, and its platform once each. Be "
+        "specific about the vibe and naturally incorporate the outfit "
+        "suggestion. Do not invent item details.\n\n"
+        f"Item details:\n{item_details}\n\n"
+        f"Outfit suggestion:\n{outfit.strip()}"
+    )
+    response = generate(
+        prompt,
+        system="Write concise, authentic secondhand-fashion captions grounded in the supplied details.",
+    ).strip()
+    return response or (
+        f"Found the {title} for ${price:g} on {platform}. "
+        f"Its {vibe} vibe gives this outfit an easy point of view."
+    )
